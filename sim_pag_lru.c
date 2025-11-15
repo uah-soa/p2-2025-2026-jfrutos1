@@ -1,6 +1,7 @@
+
 /*
     Copyright 2023 The Operating System Group at the UAH
-    sim_pag_random.c
+    sim_pag_lru.c
  */
 
 #include <stdio.h>
@@ -76,7 +77,15 @@ void reference_page(ssystem* S, int page, char op) {
     S->numrefsread++;           // count it
   } else if (op == 'W') {       // If it's a write,
     S->pgt[page].modified = 1;  // count it and mark the
-    S->numrefswrite++;          // page 'modified'
+    S->numrefswrite++;          // page 'modified'+
+
+    S->pgt[page].clock = S->clock;
+    S->clock++;
+
+    if (S->clock == 0) {   // overflow natural del unsigned
+        if (S->detailed) printf("@ WARNING: clock overflow! Normalizing timestamps...\n");
+    }
+
   }
 }
 
@@ -115,33 +124,27 @@ void handle_page_fault(ssystem* S, unsigned virtual_address) {
     }
 }
 
-static unsigned myrandom(unsigned from,  // <<--- random
-                         unsigned size) {
-  unsigned n;
-
-  n = from + (unsigned)(rand() / (RAND_MAX + 1.0) * size);
-
-  if (n > from + size - 1)  // These checks shouldn't
-    n = from + size - 1;    // be necessary, but it's
-  else if (n < from)        // better to not rely too
-    n = from;               // much on the floating
-                            // point operations
-  return n;
-}
 
 int choose_page_to_be_replaced(ssystem* S) {
-    //Codigo que se debe cambiar
   int frame, victim;
 
-  frame = myrandom(0, S->numframes);  // <<--- random
+  victim = S->frt[0].page;
+  frame=0;
+  int lowestTimestamp = S->pgt[victim].timestamp;
 
-  victim = S->frt[frame].page;
+  int pageAux;
 
-  if (S->detailed)
-    printf(
-        "@ Choosing (at random) P%d of F%d to be "
-        "replaced\n",
-        victim, frame);
+  for(int i = 1; i< S->numframes; i++){
+    pageAux = S->frt[i].page;
+    if(lowestTimestamp>S->pgt[pageAux].timestamp){
+        //nuevo menor
+        lowestTimestamp = S->pgt[pageAux].timestamp;
+        victim = pageAux;
+        frame=i;
+    }
+  }
+
+  if (S->detailed) printf("@ LRU chooses P%d in F%d (ts=%d)\n", victim, frame, lowestTimestamp);
 
   return victim;
 }
@@ -201,29 +204,29 @@ void occupy_free_frame(ssystem* S, int frame, int page) {
 void print_page_table(ssystem* S) {
   int p;
 
-  printf("%10s %10s %10s   %s\n", "PAGE", "Present", "Frame", "Modified");
+  printf("%10s %10s %10s %10s  %10s\n", "PAGE", "Present", "Frame", "Modified", "Timestamp");
 
   for (p = 0; p < S->numpags; p++)
     if (S->pgt[p].present)
-      printf("%8d   %6d     %8d   %6d\n", p, S->pgt[p].present, S->pgt[p].frame,
-             S->pgt[p].modified);
+      printf("%8d   %6d     %8d   %6d  %6u\n", p, S->pgt[p].present, S->pgt[p].frame,
+             S->pgt[p].modified, S->pgt[p].timestamp);
     else
-      printf("%8d   %6d     %8s   %6s\n", p, S->pgt[p].present, "-", "-");
+      printf("%8d   %6d     %8s   %6s  %6s\n", p, S->pgt[p].present, "-", "-", "-");
 }
 
 void print_frames_table(ssystem* S) {
   int p, f;
 
-  printf("%10s %10s %10s   %s\n", "FRAME", "Page", "Present", "Modified");
+  printf("%10s %10s %10s %10s %10s\n", "FRAME", "Page", "Present", "Modified", "Timestamp");
 
   for (f = 0; f < S->numframes; f++) {
     p = S->frt[f].page;
 
     if (p == -1)
-      printf("%8d   %8s   %6s     %6s\n", f, "-", "-", "-");
+      printf("%8d   %8s   %6s     %6s    %4s\n", f, "-", "-", "-", "-");
     else if (S->pgt[p].present)
-      printf("%8d   %8d   %6d     %6d\n", f, p, S->pgt[p].present,
-             S->pgt[p].modified);
+      printf("%8d   %8d   %6d     %6d    %6u\n", f, p, S->pgt[p].present,
+             S->pgt[p].modified, S->pgt[p].timestamp);
     else
       printf("%8d   %8d   %6d     %6s   ERROR!\n", f, p, S->pgt[p].present,
              "-");
@@ -231,7 +234,24 @@ void print_frames_table(ssystem* S) {
 }
 
 void print_replacement_report(ssystem* S) {
-  printf(
-      "Random replacement "
-      "(no specific information)\n");  // <<--- random
+    int lowf = 0, highf = 0;
+    int paux = S->frt[0].page, lowp=paux , highp=paux;
+    unsigned lowt= S->pgt[lowp].timestamp, hight = lowt;
+
+  for (int f = 1; f < S->numframes; f++) {
+      paux = S->frt[f].page;
+      if(S->pgt[paux].timestamp > hight){
+        hight = S->pgt[paux].timestamp;
+        highf=f;
+        highp=paux;
+      }else if(S->pgt[paux].timestamp < lowt){
+        lowt = S->pgt[paux].timestamp;
+        lowf=f;
+        lowp=paux;
+      }
+  }
+  printf("LRU replacement\n"
+         "lowest timestamp = %u in frame %d  (page %d)\n"
+         "highest timestamp = %u  in frame %d  (page %d)\n",
+         lowt, lowf, lowp, hight, highf,highp);
 }

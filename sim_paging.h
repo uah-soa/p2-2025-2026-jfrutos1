@@ -6,7 +6,7 @@
 #define _SIM_PAGING_H_
 
 // Structure that holds the state of a page,
-// sumulating an entry of the page table
+// simulating an entry of the page table
 
 typedef struct
 {
@@ -20,7 +20,7 @@ typedef struct
     // For LRU(t)
     unsigned timestamp; // Time mark of last reference
 
-    // NOTE: The previous two fiels are in this structure
+    // NOTE: The previous two fields are in this structure
     //       ---and not in sframe--- because they simulate
     //       a mechanism that, in reality, would be
     //       supported by the hardware.
@@ -39,7 +39,7 @@ typedef struct
 }
 sframe;
 
-// Struture that contains the state of the whole system
+// Structure that contains the state of the whole system
 
 typedef struct
 {
@@ -52,8 +52,8 @@ typedef struct
 
     // Frames table (maintained by the OS only)
     int numframes;
-    sframe * frt;
-    int listfree;
+    sframe * frt; //array de sframes
+    int listfree; //linked circular lists, initialized pointing to the last one, so the next is the first one
     int listoccupied;      // Only for FIFO and FIFO 2nd ch.
 
     // Trace data
@@ -66,7 +66,7 @@ typedef struct
 }
 ssystem;
 
-// Function that initialises the tables
+// Function that initializes the tables
 
 void init_tables (ssystem * S);
 

@@ -30,7 +30,7 @@ typedef unsigned function_sort(void *, unsigned size,
 
 // Declaration of the different sorting functions:
 
-function_sort bubble_sort, insertion_sort, selection_sort, heap_sort, comb_sort,
+function_sort, bubble_sort, insertion_sort, selection_sort, heap_sort, comb_sort,
     merge_sort, quick_sort, quick_sort_pa;
 
 #endif  // SORT_H_

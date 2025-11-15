@@ -1,6 +1,6 @@
 /*
     Copyright 2023 The Operating System Group at the UAH
-    sim_pag_random.c
+    sim_pag_fifo.c
  */
 
 #include <stdio.h>
@@ -71,6 +71,7 @@ unsigned sim_mmu(ssystem* S, unsigned virtual_addr, char op) {
     return physical_addr;
 }
 
+
 void reference_page(ssystem* S, int page, char op) {
   if (op == 'R') {              // If it's a read,
     S->numrefsread++;           // count it
@@ -115,41 +116,22 @@ void handle_page_fault(ssystem* S, unsigned virtual_address) {
     }
 }
 
-static unsigned myrandom(unsigned from,  // <<--- random
-                         unsigned size) {
-  unsigned n;
-
-  n = from + (unsigned)(rand() / (RAND_MAX + 1.0) * size);
-
-  if (n > from + size - 1)  // These checks shouldn't
-    n = from + size - 1;    // be necessary, but it's
-  else if (n < from)        // better to not rely too
-    n = from;               // much on the floating
-                            // point operations
-  return n;
-}
-
 int choose_page_to_be_replaced(ssystem* S) {
-    //Codigo que se debe cambiar
-  int frame, victim;
 
-  frame = myrandom(0, S->numframes);  // <<--- random
-
-  victim = S->frt[frame].page;
+  int frame = S->frt[S->listoccupied].next;
 
   if (S->detailed)
     printf(
-        "@ Choosing (at random) P%d of F%d to be "
+        "@ Choosing by FIFO P%d of F%d to be "
         "replaced\n",
-        victim, frame);
+        S->frt[frame].page, frame);
 
-  return victim;
+  return S->frt[frame].page;
 }
 
 void replace_page(ssystem* S, int victim, int newpage) {
-  int frame;
 
-  frame = S->pgt[victim].frame;
+  int frame = S->pgt[victim].frame;
 
   if (S->pgt[victim].modified) {
     if (S->detailed)
@@ -169,8 +151,14 @@ void replace_page(ssystem* S, int victim, int newpage) {
   S->pgt[newpage].present = 1;
   S->pgt[newpage].frame = frame;
   S->pgt[newpage].modified = 0;
+  S->pgt[newpage].referenced=0;
 
   S->frt[frame].page = newpage;
+
+  S->frt[frame].next            = S->frt[S->listoccupied].next; // primero actual
+  S->frt[S->listoccupied].next  = frame;                        // último -> nuevo
+  S->listoccupied               = frame;                        // nuevo último
+    }
 }
 
 void occupy_free_frame(ssystem* S, int frame, int page) {
@@ -179,22 +167,27 @@ void occupy_free_frame(ssystem* S, int frame, int page) {
         printf("@ Storing P%d in F%d\n", page, frame);
 
     // 1. Actualizar la tabla de páginas
-    S->pgt[page].frame     = frame;
-    S->pgt[page].present   = 1;
-    S->pgt[page].modified  = 0;    // al cargarse no está modificada
-    S->pgt[page].referenced = 0;   // aun no se ha referenciado, solo se ha cargado. En otro momento se referenciará
+    S->pgt[page].frame      = frame;
+    S->pgt[page].present    = 1;
+    S->pgt[page].modified   = 0;
+    S->pgt[page].referenced = 0;
 
     // 2. Actualizar la tabla de frames
     S->frt[frame].page = page;
 
-    // RANDOM REPLACEMENT:
-    // No se usa listoccupied, no se toca la lista
-
-  // TODO(student):
-  //       Write the code that links the page with the frame and
-  //       vice-versa, and wites the corresponding values in the
-  //       state bits of the page (presence...)
+    // 3. Insertar el frame en la lista de ocupados (FIFO)
+    if (S->listoccupied == -1) {
+        // Lista vacía: el frame se apunta a sí mismo
+        S->frt[frame].next = frame;
+        S->listoccupied = frame;
+    } else {
+        // Lista NO vacía: insertar detrás del último
+        S->frt[frame].next            = S->frt[S->listoccupied].next; // primero actual
+        S->frt[S->listoccupied].next  = frame;                        // último -> nuevo
+        S->listoccupied               = frame;                        // nuevo último
+    }
 }
+
 
 // Functions that show results
 
@@ -231,7 +224,15 @@ void print_frames_table(ssystem* S) {
 }
 
 void print_replacement_report(ssystem* S) {
-  printf(
-      "Random replacement "
-      "(no specific information)\n");  // <<--- random
+    if (S->listoccupied == -1) {
+        printf("FIFO replacement: no occupied frames.\n");
+        return;
+    }
+
+    int victim_frame = S->frt[S->listoccupied].next;
+    int victim_page  = S->frt[victim_frame].page;
+
+    printf("FIFO replacement\n");
+    printf("Next victim will be: frame %d (page %d)\n",
+           victim_frame, victim_page);
 }

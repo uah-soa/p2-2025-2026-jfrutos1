@@ -72,7 +72,7 @@ int main (int argc, char * argv[])
     if (ok)
     {
         // Calculate total number of pages
-        numpags = (totelem+P.pagsz-1) / P.pagsz; 
+        numpags = (totelem+P.pagsz-1) / P.pagsz;
 
         S.pgt = (spage*) malloc (numpags*sizeof(spage));
         S.frt = (sframe*) malloc (P.numframes*sizeof(sframe));
@@ -80,8 +80,7 @@ int main (int argc, char * argv[])
         if (!S.pgt || !S.frt)
         {
             fprintf (stderr,
-                     "ERROR: not enough "
-                            "dynamic memory\n");
+                     "ERROR: not enough dynamic memory\n");
             ok = 0;
         }
     }
@@ -146,7 +145,7 @@ void print_report (ssystem * S)
     if (S->numillegalrefs)
         printf ("\nWARNING: %d REFERENCES OUT OF RANGE\n",
                 S->numillegalrefs);
-                         
+
     printf ("\n---------- PAGES TABLE ---------\n\n");
 
     print_page_table (S);
@@ -257,9 +256,7 @@ int parse_command (int argc, char * argv[], sparameters * p)
     if (ok)
         return 0;
 
-    fprintf (stderr,
-             "\n\n    USAGE:\n\t%s pagesize numframes alg "
-                          "initord numelem mode\n\n", argv[0]);
+    fprintf (stderr, "\n\n    USAGE:\n\t%s pagesize numframes algorithm initialOrder numelem mode\n\n", argv[0]);
 
     fprintf (stderr,
              "\tpagesize: # of elements that fit in a page\n"
